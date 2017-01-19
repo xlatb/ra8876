@@ -521,7 +521,7 @@ bool RA8876::init(void)
     return false;
   }
 
-  if (!initMemory(&defaultSdramInfo))
+  if (!initMemory(m_sdramInfo))
   {
     Serial.println("initMemory failed");
     return false;
