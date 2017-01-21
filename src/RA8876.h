@@ -123,6 +123,8 @@ struct PllParams
 #define RA8876_REG_CURV0      0x61  // Graphic read/write vertical position 0
 #define RA8876_REG_CURV1      0x62  // Graphic read/write vertical position 1
 
+#define RA8876_REG_DCR0       0x67  // Draw shape control register 0
+
 #define RA8876_REG_DLHSR0     0x68  // Draw shape point 1 X coordinate register 0
 #define RA8876_REG_DLHSR1     0x69  // Draw shape point 1 X coordinate register 1
 #define RA8876_REG_DLVSR0     0x6A  // Draw shape point 1 Y coordinate register 0
@@ -139,6 +141,16 @@ struct PllParams
 #define RA8876_REG_DTPV1      0x73  // Draw shape point 3 Y coordinate register 1
 
 #define RA8876_REG_DCR1       0x76  // Draw shape control register 1
+
+#define RA8876_REG_ELL_A0     0x77  // Draw ellipse major radius 0
+#define RA8876_REG_ELL_A1     0x78  // Draw ellipse major radius 1
+#define RA8876_REG_ELL_B0     0x79  // Draw ellipse minor radius 0
+#define RA8876_REG_ELL_B1     0x7A  // Draw ellipse minor radius 1
+
+#define RA8876_REG_DEHR0      0x7B  // Draw ellipse centre X coordinate register 0
+#define RA8876_REG_DEHR1      0x7C  // Draw ellipse centre X coordinate register 1
+#define RA8876_REG_DEVR0      0x7D  // Draw ellipse centre Y coordinate register 0
+#define RA8876_REG_DEVR1      0x7E  // Draw ellipse centre Y coordinate register 1
 
 #define RA8876_REG_FGCR       0xD2  // Foreground colour register - red
 #define RA8876_REG_FGCG       0xD3  // Foreground colour register - green
@@ -188,6 +200,7 @@ private:
   uint8_t readStatus(void);
 
   void writeReg(uint8_t reg, uint8_t x);
+  void writeReg16(uint8_t reg, uint16_t x);
   uint8_t readReg(uint8_t reg);
 
   bool calcPllParams(uint32_t targetFreq, int kMax, PllParams *pll);
@@ -197,6 +210,11 @@ private:
   bool initPLL(void);
   bool initMemory(SdramInfo *info);
   bool initDisplay(void);
+
+  // Low-level shapes
+  void drawTwoPointShape(int x1, int y1, int x2, int y2, uint16_t color, uint8_t reg, uint8_t cmd);  // drawLine, drawRect, fillRect
+  void drawThreePointShape(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color, uint8_t reg, uint8_t cmd);  // drawTriangle, fillTriangle
+  void drawEllipseShape(int x, int y, int xrad, int yrad, uint16_t color, uint8_t cmd);  // drawCircle, fillCircle
 public:
   RA8876(int csPin, int resetPin = 0);
 
@@ -209,11 +227,20 @@ public:
 
   // Test
   void colorBarTest(bool enabled);
-  
+
   // Drawing
   void drawPixel(int x, int y, uint16_t color);
+  void drawLine(int x1, int y1, int x2, int y2, uint16_t color) { drawTwoPointShape(x1, y1, x2, y2, color, RA8876_REG_DCR0, 0x80); };
+  void drawRect(int x1, int y1, int x2, int y2, uint16_t color) { drawTwoPointShape(x1, y1, x2, y2, color, RA8876_REG_DCR1, 0xA0); };
+  void fillRect(int x1, int y1, int x2, int y2, uint16_t color) { drawTwoPointShape(x1, y1, x2, y2, color, RA8876_REG_DCR1, 0xE0); };
 
-  void fillRect(int x1, int y1, int x2, int y2, uint16_t color);
+  void drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color) { drawThreePointShape(x1, y1, x2, y2, x3, y3, color, RA8876_REG_DCR0, 0xA2); };
+  void fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color) { drawThreePointShape(x1, y1, x2, y2, x3, y3, color, RA8876_REG_DCR0, 0xE2); };
+
+  void drawCircle(int x, int y, int radius, uint16_t color) { drawEllipseShape(x, y, radius, radius, color, 0x80); };
+  void fillCircle(int x, int y, int radius, uint16_t color) { drawEllipseShape(x, y, radius, radius, color, 0xC0); };
+
+  void clearScreen(uint16_t color) { fillRect(0, 0, m_width, m_height, color); };
 };
 
 #endif

@@ -69,6 +69,15 @@ void RA8876::writeReg(uint8_t reg, uint8_t x)
   writeData(x);
 }
 
+// Like writeReg(), but does two successive register writes of a 16-bit value, low byte first.
+void RA8876::writeReg16(uint8_t reg, uint16_t x)
+{
+  writeCmd(reg);
+  writeData(x & 0xFF);
+  writeCmd(reg + 1);
+  writeData(x >> 8);
+}
+
 uint8_t RA8876::readReg(uint8_t reg) 
 {
   writeCmd(reg);
@@ -574,9 +583,9 @@ void RA8876::drawPixel(int x, int y, uint16_t color)
   SPI.endTransaction();
 }
 
-void RA8876::fillRect(int x1, int y1, int x2, int y2, uint16_t color)
+void RA8876::drawTwoPointShape(int x1, int y1, int x2, int y2, uint16_t color, uint8_t reg, uint8_t cmd)
 {
-  Serial.println("fillRect");
+  //Serial.println("drawTwoPointShape");
 
   SPI.beginTransaction(m_spiSettings);
 
@@ -598,7 +607,7 @@ void RA8876::fillRect(int x1, int y1, int x2, int y2, uint16_t color)
   writeReg(RA8876_REG_FGCB, (color & 0x1F) << 3);
 
   // Draw
-  writeReg(RA8876_REG_DCR1, 0xE0);  // Start drawing, filled, square
+  writeReg(reg, cmd);  // Start drawing
 
   // Wait for completion
   uint8_t status = readStatus();
@@ -609,8 +618,89 @@ void RA8876::fillRect(int x1, int y1, int x2, int y2, uint16_t color)
     iter++;
   }
 
-  Serial.print(iter); Serial.println(" iterations");
-  
+  //Serial.print(iter); Serial.println(" iterations");
+
   SPI.endTransaction();
 }
 
+void RA8876::drawThreePointShape(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color, uint8_t reg, uint8_t cmd)
+{
+  //Serial.println("drawThreePointShape");
+
+  SPI.beginTransaction(m_spiSettings);
+
+  // First point
+  writeReg(RA8876_REG_DLHSR0, x1 & 0xFF);
+  writeReg(RA8876_REG_DLHSR1, x1 >> 8);
+  writeReg(RA8876_REG_DLVSR0, y1 & 0xFF);
+  writeReg(RA8876_REG_DLVSR1, y1 >> 8);
+
+  // Second point
+  writeReg(RA8876_REG_DLHER0, x2 & 0xFF);
+  writeReg(RA8876_REG_DLHER1, x2 >> 8);
+  writeReg(RA8876_REG_DLVER0, y2 & 0xFF);
+  writeReg(RA8876_REG_DLVER1, y2 >> 8);
+
+  // Third point
+  writeReg(RA8876_REG_DTPH0, x3 & 0xFF);
+  writeReg(RA8876_REG_DTPH1, x3 >> 8);
+  writeReg(RA8876_REG_DTPV0, y3 & 0xFF);
+  writeReg(RA8876_REG_DTPV1, y3 >> 8);
+
+  // Colour
+  writeReg(RA8876_REG_FGCR, color >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((color >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (color & 0x1F) << 3);
+
+  // Draw
+  writeReg(reg, cmd);  // Start drawing
+
+  // Wait for completion
+  uint8_t status = readStatus();
+  int iter = 0;
+  while (status & 0x08)
+  {
+    status = readStatus();
+    iter++;
+  }
+
+  //Serial.print(iter); Serial.println(" iterations");
+
+  SPI.endTransaction();
+}
+
+void RA8876::drawEllipseShape(int x, int y, int xrad, int yrad, uint16_t color, uint8_t cmd)
+{
+  //Serial.println("drawEllipseShape");
+
+  SPI.beginTransaction(m_spiSettings);
+
+  // First point
+  writeReg16(RA8876_REG_DEHR0, x);
+  writeReg16(RA8876_REG_DEVR0, y);
+
+  // Radii
+  writeReg16(RA8876_REG_ELL_A0, xrad);
+  writeReg16(RA8876_REG_ELL_B0, yrad);
+
+  // Colour
+  writeReg(RA8876_REG_FGCR, color >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((color >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (color & 0x1F) << 3);
+
+  // Draw
+  writeReg(RA8876_REG_DCR1, cmd);  // Start drawing
+
+  // Wait for completion
+  uint8_t status = readStatus();
+  int iter = 0;
+  while (status & 0x08)
+  {
+    status = readStatus();
+    iter++;
+  }
+
+  //Serial.print(iter); Serial.println(" iterations");
+
+  SPI.endTransaction();
+}
