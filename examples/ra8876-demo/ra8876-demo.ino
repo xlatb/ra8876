@@ -1,8 +1,8 @@
 #include "RA8876.h"
 
-#define RA8876_CS        10
-#define RA8876_RESET     9
-#define RA8876_BACKLIGHT 8
+#define RA8876_CS        12
+#define RA8876_RESET     11
+#define RA8876_BACKLIGHT 10
 
 
 RA8876 tft = RA8876(RA8876_CS, RA8876_RESET);
