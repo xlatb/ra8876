@@ -2,6 +2,10 @@
 
 Arduino library for interfacing with RA8876 graphics chip
 
+# Capabilities
+
+* Supports hopefully any resolution (default 1024x600) at 16 bits per pixel
+
 # Hardware
 
 Tested with displays:
@@ -11,3 +15,5 @@ Tested with displays:
 Tested with microcontroller boards:
 
 * Arduino Due
+* Adafruit Feather M0
+
