@@ -84,6 +84,19 @@ uint8_t RA8876::readReg(uint8_t reg)
   return readData();
 }
 
+// Like readReg(), but does two successive register reads of a 16-bit value, low byte first.
+uint16_t RA8876::readReg16(uint8_t reg)
+{
+  uint16_t v;
+
+  writeCmd(reg);
+  v = readData();
+  writeCmd(reg + 1);
+  v |= readData() << 8;
+
+  return v;
+}
+
 RA8876::RA8876(int csPin, int resetPin)
 {
   m_csPin    = csPin;
@@ -98,6 +111,8 @@ RA8876::RA8876(int csPin, int resetPin)
   m_sdramInfo = &defaultSdramInfo;
 
   m_displayInfo = &defaultDisplayInfo;
+
+  m_textColor = 0xFFFF; // White
 }
 
 // Trigger a hardware reset.
@@ -542,6 +557,9 @@ bool RA8876::init(void)
     return false;
   }
 
+  // Set default font
+  selectInternalFont(RA8876_FONT_SIZE_8X16);
+
   return true;
 }
 
@@ -704,3 +722,93 @@ void RA8876::drawEllipseShape(int x, int y, int xrad, int yrad, uint16_t color, 
 
   SPI.endTransaction();
 }
+
+void RA8876::setCursor(int x, int y)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  writeReg16(RA8876_REG_F_CURX0, x);
+  writeReg16(RA8876_REG_F_CURY0, y);
+
+  SPI.endTransaction();
+}
+
+int RA8876::getCursorX(void)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  int x = readReg16(RA8876_REG_F_CURX0);
+
+  SPI.endTransaction();
+
+  return x;
+}
+
+int RA8876::getCursorY(void)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  int y = readReg16(RA8876_REG_F_CURY0);
+
+  SPI.endTransaction();
+
+  return y;
+}
+
+void RA8876::selectInternalFont(enum FontSize size, enum InternalFontEncoding enc)
+{
+  m_fontSource = RA8876_FONT_SOURCE_INTERNAL;
+  m_fontSize   = size;
+
+  SPI.beginTransaction(m_spiSettings);
+
+  writeReg(RA8876_REG_CCR0, 0x00 | ((size & 0x03) << 4) | (enc & 0x03));
+  writeReg(RA8876_REG_CCR1, 0x40);
+
+  SPI.endTransaction();
+}
+
+int RA8876::getTextSizeY(void)
+{
+  return (m_fontSize + 2) * 8;
+}
+
+size_t RA8876::write(const uint8_t *buffer, size_t size)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  // Set colour
+  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
+
+  // Enable text mode
+  uint8_t icr = readReg(RA8876_REG_ICR);
+  icr |= 0x04;
+  writeReg(RA8876_REG_ICR, icr | 0x04);
+
+  for (unsigned int i = 0; i < size; i++)
+  {
+    char c = buffer[i];
+
+    if (c == '\r')
+      ;  // Ignored
+    else if (c == '\n')
+      setCursor(0, getCursorY() + getTextSizeY());
+    else
+
+    // Write character
+    writeReg(RA8876_REG_MRWDP, c);
+
+    // TODO: Wait for status bits
+    delay(5);
+  }
+
+  // Disable text mode
+  writeReg(RA8876_REG_ICR, icr);
+
+  SPI.endTransaction();
+
+  return size;
+}
+

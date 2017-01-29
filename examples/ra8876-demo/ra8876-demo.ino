@@ -49,7 +49,9 @@ void setup()
 
   delay(1000);
 
-  
+  textTest();
+
+  delay(1000);
 }
 
 void gradientTest()
@@ -110,7 +112,7 @@ void triangleTest()
 
   uint32_t starttime = millis();
 
-  for (int i = 0; i < 5000; i++)
+  for (int i = 0; i < 2000; i++)
   {
     int x1 = random(0, width);
     int y1 = random(0, height);
@@ -150,6 +152,34 @@ void circleTest()
 
   uint32_t elapsedtime = millis() - starttime;
   Serial.print("Circle test took "); Serial.print(elapsedtime); Serial.println(" ms");
+}
+
+void textTest()
+{
+  Serial.println("Text test.");
+
+  uint32_t starttime = millis();
+
+  for (int i = 0; i < 3; i++)
+  {
+    tft.selectInternalFont((enum FontSize) i);
+    tft.println("Hello, World!");
+  }
+
+  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_1);
+  tft.println("Latin 1: na\xEFve");  // naïve
+
+  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_2);
+  tft.println("Latin 2: \xE8" "a\xE8kalica");
+
+  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_4);
+  tft.println("Latin 4: gie\xF0" "at");  // gieđat
+
+  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_5);
+  tft.println("Latin 5: \xD2\xD5\xD4\xD8");  // веди
+
+  uint32_t elapsedtime = millis() - starttime;
+  Serial.print("Text test took "); Serial.print(elapsedtime); Serial.println(" ms");  
 }
 
 void loop()

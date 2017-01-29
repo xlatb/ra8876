@@ -46,6 +46,26 @@ struct PllParams
 #define RGB332(r, g, b) (((r) & 0xE0) | (((g) & 0xE0) >> 3) | (((b) & 0xE0) >> 6))
 #define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | (((b) & 0xF8) >> 3))
 
+enum FontSource
+{
+  RA8876_FONT_SOURCE_INTERNAL,  // CGROM with four 8-bit Latin-1 variants
+};
+
+enum FontSize
+{
+  RA8876_FONT_SIZE_8X16  = 0x00,
+  RA8876_FONT_SIZE_12X24 = 0x01,
+  RA8876_FONT_SIZE_16X32 = 0x02
+};
+
+enum InternalFontEncoding
+{
+  RA8876_FONT_ENCODING_8859_1 = 0x00,  // ISO Latin 1
+  RA8876_FONT_ENCODING_8859_2 = 0x01,  // ISO Latin 2 (Eastern Europe)
+  RA8876_FONT_ENCODING_8859_4 = 0x02,  // ISO Latin 4 (Northern European)
+  RA8876_FONT_ENCODING_8859_5 = 0x03   // ISO Latin 5 (Latin/Cyrillic)
+};
+
 // 1MHz. TODO: Figure out actual speed to use
 // Data sheet section 5.2 says maximum SPI clock is 50MHz.
 #define RA8876_SPI_SPEED 1000000
@@ -122,6 +142,10 @@ struct PllParams
 #define RA8876_REG_CURH1      0x60  // Graphic read/write horizontal position 1
 #define RA8876_REG_CURV0      0x61  // Graphic read/write vertical position 0
 #define RA8876_REG_CURV1      0x62  // Graphic read/write vertical position 1
+#define RA8876_REG_F_CURX0    0x63  // Text cursor X-coordinate register 0
+#define RA8876_REG_F_CURX1    0x64  // Text cursor X-coordinate register 1
+#define RA8876_REG_F_CURY0    0x65  // Text cursor Y-coordinate register 0
+#define RA8876_REG_F_CURY1    0x66  // Text cursor Y-coordinate register 1
 
 #define RA8876_REG_DCR0       0x67  // Draw shape control register 0
 
@@ -152,6 +176,9 @@ struct PllParams
 #define RA8876_REG_DEVR0      0x7D  // Draw ellipse centre Y coordinate register 0
 #define RA8876_REG_DEVR1      0x7E  // Draw ellipse centre Y coordinate register 1
 
+#define RA8876_REG_CCR0       0xCC  // Character Control Register 0
+#define RA8876_REG_CCR1       0xCD  // Character Control Register 1
+
 #define RA8876_REG_FGCR       0xD2  // Foreground colour register - red
 #define RA8876_REG_FGCG       0xD3  // Foreground colour register - green
 #define RA8876_REG_FGCB       0xD4  // Foreground colour register - blue
@@ -169,7 +196,7 @@ struct PllParams
 #define RA8876_REG_SDRCR         0xE4  // SDRAM control register
 
 
-class RA8876
+class RA8876 : public Print
 {
 private:
   int m_csPin;
@@ -191,6 +218,11 @@ private:
   
   DisplayInfo *m_displayInfo;
 
+  uint16_t m_textColor;
+
+  enum FontSource m_fontSource;
+  enum FontSize   m_fontSize;
+
   void hardReset(void);
   void softReset(void);
 
@@ -202,6 +234,7 @@ private:
   void writeReg(uint8_t reg, uint8_t x);
   void writeReg16(uint8_t reg, uint16_t x);
   uint8_t readReg(uint8_t reg);
+  uint16_t readReg16(uint8_t reg);
 
   bool calcPllParams(uint32_t targetFreq, int kMax, PllParams *pll);
   bool calcClocks(void);
@@ -241,6 +274,21 @@ public:
   void fillCircle(int x, int y, int radius, uint16_t color) { drawEllipseShape(x, y, radius, radius, color, 0xC0); };
 
   void clearScreen(uint16_t color) { fillRect(0, 0, m_width, m_height, color); };
+
+  // Text cursor
+  void setCursor(int x, int y);
+  int getCursorX(void);
+  int getCursorY(void);
+
+  // Text
+  void selectInternalFont(enum FontSize size, enum InternalFontEncoding enc = RA8876_FONT_ENCODING_8859_1);
+  int getTextSizeY(void);
+  void setTextColor(uint16_t color) { m_textColor = color; };
+
+  // Internal for Print class
+  virtual size_t write(uint8_t c) { return write(&c, 1); };
+  virtual size_t write(const uint8_t *buffer, size_t size);
+
 };
 
 #endif
