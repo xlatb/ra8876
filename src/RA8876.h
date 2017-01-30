@@ -219,6 +219,8 @@ private:
   DisplayInfo *m_displayInfo;
 
   uint16_t m_textColor;
+  int      m_textScaleX;
+  int      m_textScaleY;
 
   enum FontSource m_fontSource;
   enum FontSize   m_fontSize;
@@ -284,6 +286,10 @@ public:
   void selectInternalFont(enum FontSize size, enum InternalFontEncoding enc = RA8876_FONT_ENCODING_8859_1);
   int getTextSizeY(void);
   void setTextColor(uint16_t color) { m_textColor = color; };
+  void setTextScale(int scale) { setTextScale(scale, scale); };
+  void setTextScale(int xScale, int yScale);
+  void putChar(unsigned char c) { putChars(&c, 1); };
+  void putChars(const uint8_t *buffer, size_t size);
 
   // Internal for Print class
   virtual size_t write(uint8_t c) { return write(&c, 1); };

@@ -160,11 +160,22 @@ void textTest()
 
   uint32_t starttime = millis();
 
-  for (int i = 0; i < 3; i++)
+  for (int s = 1; s <= 4; s++)
   {
-    tft.selectInternalFont((enum FontSize) i);
-    tft.println("Hello, World!");
+    tft.setTextScale(s);
+    
+    for (int i = 0; i < 3; i++)
+    {
+      tft.setCursor((tft.getWidth() / 3) * i, tft.getCursorY());
+      tft.selectInternalFont((enum FontSize) i);
+      tft.print("Hello");
+    }
+
+    tft.println();
   }
+
+  tft.setCursor(0, 32 * 10);
+  tft.setTextScale(1);
 
   tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_1);
   tft.println("Latin 1: na\xEFve");  // naïve
@@ -178,8 +189,13 @@ void textTest()
   tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_5);
   tft.println("Latin 5: \xD2\xD5\xD4\xD8");  // веди
 
+  tft.selectInternalFont(RA8876_FONT_SIZE_16X32);
+  tft.print("Symbols: ");
+  tft.putChars((const uint8_t *) "\x00\x01\x02\x03\x04\x05\x06\x07", 8);
+  tft.putChars((const uint8_t *) "\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F", 8);
+
   uint32_t elapsedtime = millis() - starttime;
-  Serial.print("Text test took "); Serial.print(elapsedtime); Serial.println(" ms");  
+  Serial.print("Text test took "); Serial.print(elapsedtime); Serial.println(" ms");
 }
 
 void loop()

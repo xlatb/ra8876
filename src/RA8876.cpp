@@ -559,6 +559,7 @@ bool RA8876::init(void)
 
   // Set default font
   selectInternalFont(RA8876_FONT_SIZE_8X16);
+  setTextScale(1);
 
   return true;
 }
@@ -763,14 +764,65 @@ void RA8876::selectInternalFont(enum FontSize size, enum InternalFontEncoding en
   SPI.beginTransaction(m_spiSettings);
 
   writeReg(RA8876_REG_CCR0, 0x00 | ((size & 0x03) << 4) | (enc & 0x03));
-  writeReg(RA8876_REG_CCR1, 0x40);
+
+  uint8_t ccr1 = readReg(RA8876_REG_CCR1);
+  ccr1 |= 0x40;  // Transparent background
+  writeReg(RA8876_REG_CCR1, ccr1);
 
   SPI.endTransaction();
 }
 
 int RA8876::getTextSizeY(void)
 {
-  return (m_fontSize + 2) * 8;
+  return ((m_fontSize + 2) * 8) * m_textScaleY;
+}
+
+void RA8876::setTextScale(int xScale, int yScale)
+{
+  xScale = constrain(xScale, 1, 4);
+  yScale = constrain(yScale, 1, 4);
+
+  m_textScaleX = xScale;
+  m_textScaleY = yScale;
+
+  SPI.beginTransaction(m_spiSettings);
+
+  uint8_t ccr1 = readReg(RA8876_REG_CCR1);
+  ccr1 = (ccr1 & 0xF0) | ((xScale - 1) << 2) | (yScale - 1);
+  Serial.println(ccr1, HEX);
+  writeReg(RA8876_REG_CCR1, ccr1);
+
+  SPI.endTransaction();
+}
+
+// Similar to write(), but does no special handling of control characters.
+void RA8876::putChars(const uint8_t *buffer, size_t size)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  // Set colour
+  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
+
+  // Enable text mode
+  uint8_t icr = readReg(RA8876_REG_ICR);
+  icr |= 0x04;
+  writeReg(RA8876_REG_ICR, icr | 0x04);
+
+  for (unsigned int i = 0; i < size; i++)
+  {
+    // Write character
+    writeReg(RA8876_REG_MRWDP, buffer[i]);
+
+    // TODO: Wait for status bits
+    delay(5);
+  }
+
+  // Disable text mode
+  writeReg(RA8876_REG_ICR, icr);
+
+  SPI.endTransaction();
 }
 
 size_t RA8876::write(const uint8_t *buffer, size_t size)
