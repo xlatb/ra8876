@@ -17,3 +17,6 @@ Tested with microcontroller boards:
 * Arduino Due
 * Adafruit Feather M0
 
+# Documentation
+
+See the [wiki](https://github.com/xlatb/ra8876/wiki).
