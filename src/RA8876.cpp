@@ -807,7 +807,6 @@ void RA8876::putChars(const uint8_t *buffer, size_t size)
 
   // Enable text mode
   uint8_t icr = readReg(RA8876_REG_ICR);
-  icr |= 0x04;
   writeReg(RA8876_REG_ICR, icr | 0x04);
 
   for (unsigned int i = 0; i < size; i++)
@@ -836,7 +835,6 @@ size_t RA8876::write(const uint8_t *buffer, size_t size)
 
   // Enable text mode
   uint8_t icr = readReg(RA8876_REG_ICR);
-  icr |= 0x04;
   writeReg(RA8876_REG_ICR, icr | 0x04);
 
   for (unsigned int i = 0; i < size; i++)
