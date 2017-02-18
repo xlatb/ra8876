@@ -48,23 +48,80 @@ struct PllParams
 
 enum FontSource
 {
-  RA8876_FONT_SOURCE_INTERNAL,  // CGROM with four 8-bit Latin-1 variants
+  RA8876_FONT_SOURCE_INTERNAL,  // CGROM with four 8-bit ISO Latin variants
+  RA8876_FONT_SOURCE_EXT_ROM    // External font ROM chip
 };
 
 enum FontSize
 {
-  RA8876_FONT_SIZE_8X16  = 0x00,
-  RA8876_FONT_SIZE_12X24 = 0x01,
-  RA8876_FONT_SIZE_16X32 = 0x02
+  RA8876_FONT_SIZE_16 = 0x00,
+  RA8876_FONT_SIZE_24 = 0x01,
+  RA8876_FONT_SIZE_32 = 0x02
 };
 
-enum InternalFontEncoding
+enum FontEncoding
 {
-  RA8876_FONT_ENCODING_8859_1 = 0x00,  // ISO Latin 1
-  RA8876_FONT_ENCODING_8859_2 = 0x01,  // ISO Latin 2 (Eastern Europe)
-  RA8876_FONT_ENCODING_8859_4 = 0x02,  // ISO Latin 4 (Northern European)
-  RA8876_FONT_ENCODING_8859_5 = 0x03   // ISO Latin 5 (Latin/Cyrillic)
+  RA8876_FONT_ENCODING_GB2312   = 0x00,  // GB2312 (Simplified Chinese)
+  RA8876_FONT_ENCODING_GB18030  = 0x01,  // GB12345/GB18030 (Chinese)
+  RA8876_FONT_ENCODING_BIG5     = 0x02,  // Big5 (Traditional Chinese)
+
+  RA8876_FONT_ENCODING_UNICODE  = 0x03,  // Unicode (UCS-2?)
+
+  RA8876_FONT_ENCODING_ASCII    = 0x04,  // ASCII
+
+  RA8876_FONT_ENCODING_UNIJAPAN = 0x05,  // Uni-Japanese (?)
+  RA8876_FONT_ENCODING_JIS0208  = 0x06,  // JIS X 0208 (Shift JIS?)
+
+  RA8876_FONT_ENCODING_LGCATH   = 0x07,  // Latin/Greek/Cyrillic/Arabic/Thai/Hebrew (?)
+
+  RA8876_FONT_ENCODING_8859_1   = 0x11,  // ISO 8859-1 (Latin 1)
+  RA8876_FONT_ENCODING_8859_2   = 0x12,  // ISO 8859-2 (Latin 2: Eastern European)
+  RA8876_FONT_ENCODING_8859_3   = 0x13,  // ISO 8859-3 (Latin 3: South European)
+  RA8876_FONT_ENCODING_8859_4   = 0x14,  // ISO 8859-4 (Latin 4: Northern European)
+  RA8876_FONT_ENCODING_8859_5   = 0x15,  // ISO 8859-5 (Latin/Cyrillic)
+  RA8876_FONT_ENCODING_8859_7   = 0x16,  // ISO 8859-7 (Latin/Greek)
+  RA8876_FONT_ENCODING_8859_8   = 0x17,  // ISO 8859-8 (Latin/Hebrew)
+  RA8876_FONT_ENCODING_8859_9   = 0x18,  // ISO 8859-9 (Latin 5: Turkish)
+  RA8876_FONT_ENCODING_8859_10  = 0x19,  // ISO 8859-10 (Latin 6: Nordic)
+  RA8876_FONT_ENCODING_8859_11  = 0x1A,  // ISO 8859-11 (Latin/Thai)
+  RA8876_FONT_ENCODING_8859_13  = 0x1B,  // ISO 8859-13 (Latin 7: Baltic Rim)
+  RA8876_FONT_ENCODING_8859_14  = 0x1C,  // ISO 8859-14 (Latin 8: Celtic)
+  RA8876_FONT_ENCODING_8859_15  = 0x1D,  // ISO 8859-15 (Latin 9: Western European)
+  RA8876_FONT_ENCODING_8859_16  = 0x1E   // ISO 8859-16 (Latin 10: South-Eastern European)
 };
+
+enum ExternalFontRom
+{
+  RA8876_FONT_ROM_GT21L16T1W = 0,
+  RA8876_FONT_ROM_GT30L16U2W = 1,
+  RA8876_FONT_ROM_GT30L24T3Y = 2,
+  RA8876_FONT_ROM_GT30L24M1Z = 3,
+  RA8876_FONT_ROM_GT30L32S4W = 4,
+  RA8876_FONT_ROM_GT20L24F6Y = 5,
+  RA8876_FONT_ROM_GT21L24S1W = 6
+};
+
+struct ExternalFontRomInfo
+{
+  bool present;
+  int  spiInterface;          // SPI interface that font ROM is connected to (0 or 1)
+  int  spiClockDivisor;       // SPI interface clock divisor (2..512 in steps of 2)
+  enum ExternalFontRom chip;  // Chip type
+};
+
+enum ExternalFontFamily
+{
+  RA8876_FONT_FAMILY_FIXED = 0,
+  RA8876_FONT_FAMILY_ARIAL = 1,
+  RA8876_FONT_FAMILY_TIMES_ROMAN = 2,
+  RA8876_FONT_FAMILY_FIXED_BOLD = 3
+};
+
+// TODO?
+//struct ExternalFontInfo
+//{
+//  enum ExternalFontFamily family;
+//};
 
 // 1MHz. TODO: Figure out actual speed to use
 // Data sheet section 5.2 says maximum SPI clock is 50MHz.
@@ -176,17 +233,26 @@ enum InternalFontEncoding
 #define RA8876_REG_DEVR0      0x7D  // Draw ellipse centre Y coordinate register 0
 #define RA8876_REG_DEVR1      0x7E  // Draw ellipse centre Y coordinate register 1
 
-#define RA8876_REG_CCR0       0xCC  // Character Control Register 0
-#define RA8876_REG_CCR1       0xCD  // Character Control Register 1
-
-#define RA8876_REG_FGCR       0xD2  // Foreground colour register - red
-#define RA8876_REG_FGCG       0xD3  // Foreground colour register - green
-#define RA8876_REG_FGCB       0xD4  // Foreground colour register - blue
-
 // Data sheet 19.7: PWM timer control registers
 #define RA8876_REG_PSCLR      0x84  // PWM prescaler register
 #define RA8876_REG_PMUXR      0x85  // PWM clock mux register
 #define RA8876_REG_PCFGR      0x86  // PWM configuration register
+
+// Data sheet 19.9: Serial flash & SPI master control registers
+#define RA8876_REG_SFL_CTRL   0xB7  // Serial flash/ROM control register
+#define RA8876_REG_SPI_DIVSOR 0xBB  // SPI clock period
+
+// Data sheet 19.10: Text engine
+#define RA8876_REG_CCR0       0xCC  // Character Control Register 0
+#define RA8876_REG_CCR1       0xCD  // Character Control Register 1
+#define RA8876_REG_GTFNT_SEL  0xCE  // Genitop character ROM select
+#define RA8876_REG_GTFNT_CR   0xCF  // Genitop character ROM control register
+
+#define RA8876_REG_FLDR       0xD0  // Chracter line gap register
+#define RA8876_REG_F2FSSR     0xD1  // Chracter to character space setting register
+#define RA8876_REG_FGCR       0xD2  // Foreground colour register - red
+#define RA8876_REG_FGCG       0xD3  // Foreground colour register - green
+#define RA8876_REG_FGCB       0xD4  // Foreground colour register - blue
 
 // Data sheet 19.12: SDRAM control registers
 #define RA8876_REG_SDRAR         0xE0  // SDRAM attribute register
@@ -215,8 +281,10 @@ private:
   SPISettings m_spiSettings;
 
   SdramInfo *m_sdramInfo;
-  
+
   DisplayInfo *m_displayInfo;
+
+  ExternalFontRomInfo m_fontRomInfo;
 
   uint16_t m_textColor;
   int      m_textScaleX;
@@ -246,16 +314,21 @@ private:
   bool initMemory(SdramInfo *info);
   bool initDisplay(void);
 
+  // Font utils
+  uint8_t internalFontEncoding(enum FontEncoding enc);
+
   // Low-level shapes
   void drawTwoPointShape(int x1, int y1, int x2, int y2, uint16_t color, uint8_t reg, uint8_t cmd);  // drawLine, drawRect, fillRect
   void drawThreePointShape(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color, uint8_t reg, uint8_t cmd);  // drawTriangle, fillTriangle
   void drawEllipseShape(int x, int y, int xrad, int yrad, uint16_t color, uint8_t cmd);  // drawCircle, fillCircle
+
 public:
   RA8876(int csPin, int resetPin = 0);
 
   // Init
   bool init(void);
-  
+  void initExternalFontRom(int spiIf, enum ExternalFontRom chip);
+
   // Dimensions
   int getWidth() { return m_width; };
   int getHeight() { return m_height; };
@@ -275,7 +348,7 @@ public:
   void drawCircle(int x, int y, int radius, uint16_t color) { drawEllipseShape(x, y, radius, radius, color, 0x80); };
   void fillCircle(int x, int y, int radius, uint16_t color) { drawEllipseShape(x, y, radius, radius, color, 0xC0); };
 
-  void clearScreen(uint16_t color) { fillRect(0, 0, m_width, m_height, color); };
+  void clearScreen(uint16_t color) { setCursor(0, 0); fillRect(0, 0, m_width, m_height, color); };
 
   // Text cursor
   void setCursor(int x, int y);
@@ -283,13 +356,16 @@ public:
   int getCursorY(void);
 
   // Text
-  void selectInternalFont(enum FontSize size, enum InternalFontEncoding enc = RA8876_FONT_ENCODING_8859_1);
+  void selectInternalFont(enum FontSize size, enum FontEncoding enc = RA8876_FONT_ENCODING_8859_1);
+  void selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc);
   int getTextSizeY(void);
   void setTextColor(uint16_t color) { m_textColor = color; };
   void setTextScale(int scale) { setTextScale(scale, scale); };
   void setTextScale(int xScale, int yScale);
-  void putChar(unsigned char c) { putChars(&c, 1); };
-  void putChars(const uint8_t *buffer, size_t size);
+  void putChar(char c) { putChars(&c, 1); };
+  void putChars(const char *buffer, size_t size);
+  void putChar16(uint16_t c) { putChars16(&c, 1); };
+  void putChars16(const uint16_t *buffer, unsigned int count);
 
   // Internal for Print class
   virtual size_t write(uint8_t c) { return write(&c, 1); };

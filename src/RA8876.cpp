@@ -16,7 +16,7 @@ DisplayInfo defaultDisplayInfo =
   1024,   // Display width
   600,    // Display height
   50000,  // Pixel clock in kHz
-  
+
   160,    // Horizontal front porch
   160,    // Horizontal back porch
   70,     // HSYNC pulse width
@@ -113,6 +113,8 @@ RA8876::RA8876(int csPin, int resetPin)
   m_displayInfo = &defaultDisplayInfo;
 
   m_textColor = 0xFFFF; // White
+
+  m_fontRomInfo.present = false;  // No external font ROM chip
 }
 
 // Trigger a hardware reset.
@@ -558,10 +560,48 @@ bool RA8876::init(void)
   }
 
   // Set default font
-  selectInternalFont(RA8876_FONT_SIZE_8X16);
+  selectInternalFont(RA8876_FONT_SIZE_16);
   setTextScale(1);
 
   return true;
+}
+
+void RA8876::initExternalFontRom(int spiIf, enum ExternalFontRom chip)
+{
+  // See data sheet figure 16-10
+  // TODO: GT30L24T3Y supports FAST_READ command (0x0B) and runs at 20MHz. Are the other font chips the same?
+
+  // Find a clock divisor. Values are in the range 2..512 in steps of 2.
+  int divisor;
+  uint32_t speed = 20000;  // 20MHz target speed
+  for (divisor = 2; divisor <= 512; divisor += 2)
+  {
+    if (m_corePll.freq / divisor <= speed)
+      break;
+  }
+
+  m_fontRomInfo.present = true;
+  m_fontRomInfo.spiInterface = spiIf;
+  m_fontRomInfo.spiClockDivisor = divisor;
+  m_fontRomInfo.chip = chip;
+
+  Serial.print("External font SPI divisor: "); Serial.println(divisor);
+
+  SPI.beginTransaction(m_spiSettings);
+
+  // Ensure SPI is enabled in chip config register
+  uint8_t ccr = readReg(RA8876_REG_CCR);
+  if (!(ccr & 0x02))
+    writeReg(RA8876_REG_CCR, ccr | 0x02);
+
+  Serial.print("SFL_CTRL: "); Serial.println(((spiIf & 1) << 7) | 0x14, HEX);
+  writeReg(RA8876_REG_SFL_CTRL, ((spiIf & 1) << 7) | 0x14);  // Font mode, 24-bit address, standard timing, supports FAST_READ
+  Serial.print("SPI_DIVSOR: "); Serial.println((divisor >> 1) - 1, HEX);
+  writeReg(RA8876_REG_SPI_DIVSOR, (divisor >> 1) - 1);
+  Serial.print("GTFNT_SEL: "); Serial.println((chip & 0x07) << 5, HEX);
+  writeReg(RA8876_REG_GTFNT_SEL, (chip & 0x07) << 5);
+
+  SPI.endTransaction();
 }
 
 // Show colour bars of 8 colours in repeating horizontal bars.
@@ -756,18 +796,63 @@ int RA8876::getCursorY(void)
   return y;
 }
 
-void RA8876::selectInternalFont(enum FontSize size, enum InternalFontEncoding enc)
+// Given a font encoding value, returns the corresponding bit pattern for
+//  use by internal fonts.
+uint8_t RA8876::internalFontEncoding(enum FontEncoding enc)
+{
+  uint8_t e;
+  switch (enc)
+  {
+  case RA8876_FONT_ENCODING_8859_2:
+    e = 0x01;
+    break;
+  case RA8876_FONT_ENCODING_8859_4:
+    e = 0x02;
+    break;
+  case RA8876_FONT_ENCODING_8859_5:
+    e = 0x03;
+    break;
+  default:
+    e = 0x00;  // ISO-8859-1
+    break;
+  }
+
+  return e;
+}
+
+void RA8876::selectInternalFont(enum FontSize size, enum FontEncoding enc)
 {
   m_fontSource = RA8876_FONT_SOURCE_INTERNAL;
   m_fontSize   = size;
 
   SPI.beginTransaction(m_spiSettings);
 
-  writeReg(RA8876_REG_CCR0, 0x00 | ((size & 0x03) << 4) | (enc & 0x03));
+  writeReg(RA8876_REG_CCR0, 0x00 | ((size & 0x03) << 4) | internalFontEncoding(enc));
 
   uint8_t ccr1 = readReg(RA8876_REG_CCR1);
   ccr1 |= 0x40;  // Transparent background
   writeReg(RA8876_REG_CCR1, ccr1);
+
+  SPI.endTransaction();
+}
+
+void RA8876::selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc)
+{
+  m_fontSource = RA8876_FONT_SOURCE_EXT_ROM;
+  m_fontSize   = size;
+
+  SPI.beginTransaction(m_spiSettings);
+
+  Serial.print("CCR0: "); Serial.println(0x40 | ((size & 0x03) << 4), HEX);
+  writeReg(RA8876_REG_CCR0, 0x40 | ((size & 0x03) << 4));  // Select external font ROM and size
+
+  uint8_t ccr1 = readReg(RA8876_REG_CCR1);
+  ccr1 |= 0x40;  // Transparent background
+  Serial.print("CCR1: "); Serial.println(ccr1, HEX);
+  writeReg(RA8876_REG_CCR1, ccr1);
+
+  Serial.print("GTFNT_CR: "); Serial.println((enc << 3) | (family & 0x03), HEX);
+  writeReg(RA8876_REG_GTFNT_CR, (enc << 3) | (family & 0x03));  // Character encoding and family
 
   SPI.endTransaction();
 }
@@ -796,7 +881,7 @@ void RA8876::setTextScale(int xScale, int yScale)
 }
 
 // Similar to write(), but does no special handling of control characters.
-void RA8876::putChars(const uint8_t *buffer, size_t size)
+void RA8876::putChars(const char *buffer, size_t size)
 {
   SPI.beginTransaction(m_spiSettings);
 
@@ -809,10 +894,42 @@ void RA8876::putChars(const uint8_t *buffer, size_t size)
   uint8_t icr = readReg(RA8876_REG_ICR);
   writeReg(RA8876_REG_ICR, icr | 0x04);
 
+  // Write characters
+  writeCmd(RA8876_REG_MRWDP);
   for (unsigned int i = 0; i < size; i++)
   {
-    // Write character
-    writeReg(RA8876_REG_MRWDP, buffer[i]);
+    writeData(buffer[i]);
+
+    // TODO: Wait for status bits
+    delay(5);
+  }
+
+  // Disable text mode
+  writeReg(RA8876_REG_ICR, icr);
+
+  SPI.endTransaction();
+}
+
+void RA8876::putChars16(const uint16_t *buffer, unsigned int count)
+{
+  SPI.beginTransaction(m_spiSettings);
+
+  // Set colour
+  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
+
+  // Enable text mode
+  uint8_t icr = readReg(RA8876_REG_ICR);
+  writeReg(RA8876_REG_ICR, icr | 0x04);
+
+  // Write characters
+  writeCmd(RA8876_REG_MRWDP);
+  for (unsigned int i = 0; i < count; i++)
+  {
+    Serial.print("buffer "); Serial.print(i); Serial.print(" val "); Serial.println(buffer[i], HEX);
+    writeData(buffer[i] >> 8);
+    writeData(buffer[i] & 0xFF);
 
     // TODO: Wait for status bits
     delay(5);

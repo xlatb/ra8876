@@ -177,24 +177,24 @@ void textTest()
   tft.setCursor(0, 32 * 10);
   tft.setTextScale(1);
 
-  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_1);
+  tft.selectInternalFont(RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_8859_1);
   tft.println("Latin 1: na\xEFve");  // naïve
 
-  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_2);
+  tft.selectInternalFont(RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_8859_2);
   tft.println("Latin 2: \xE8" "a\xE8kalica");
 
-  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_4);
+  tft.selectInternalFont(RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_8859_4);
   tft.println("Latin 4: gie\xF0" "at");  // gieđat
 
-  tft.selectInternalFont(RA8876_FONT_SIZE_16X32, RA8876_FONT_ENCODING_8859_5);
+  tft.selectInternalFont(RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_8859_5);
   tft.println("Latin 5: \xD2\xD5\xD4\xD8");  // веди
 
-  tft.selectInternalFont(RA8876_FONT_SIZE_16X32);
+  tft.selectInternalFont(RA8876_FONT_SIZE_32);
   tft.print("Symbols: ");
-  tft.putChars((const uint8_t *) "\x00\x01\x02\x03\x04\x05\x06\x07", 8);
-  tft.putChars((const uint8_t *) "\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F", 8);
-  tft.putChars((const uint8_t *) "\x10\x11\x12\x13\x14\x15\x16\x17", 8);
-  tft.putChars((const uint8_t *) "\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F", 8);
+  tft.putChars("\x00\x01\x02\x03\x04\x05\x06\x07", 8);
+  tft.putChars("\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F", 8);
+  tft.putChars("\x10\x11\x12\x13\x14\x15\x16\x17", 8);
+  tft.putChars("\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F", 8);
 
   uint32_t elapsedtime = millis() - starttime;
   Serial.print("Text test took "); Serial.print(elapsedtime); Serial.println(" ms");
