@@ -820,10 +820,34 @@ uint8_t RA8876::internalFontEncoding(enum FontEncoding enc)
   return e;
 }
 
+void RA8876::setTextMode(void)
+{
+  // Restore text colour
+  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
+  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
+  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
+
+  waitTaskBusy();
+
+  // Enable text mode
+  uint8_t icr = readReg(RA8876_REG_ICR);
+  writeReg(RA8876_REG_ICR, icr | 0x04);
+}
+
+void RA8876::setGraphicsMode(void)
+{
+  waitTaskBusy();
+
+  // Disable text mode
+  uint8_t icr = readReg(RA8876_REG_ICR);
+  writeReg(RA8876_REG_ICR, icr & ~0x04);
+}
+
 void RA8876::selectInternalFont(enum FontSize size, enum FontEncoding enc)
 {
   m_fontSource = RA8876_FONT_SOURCE_INTERNAL;
   m_fontSize   = size;
+  m_fontFlags  = 0;
 
   SPI.beginTransaction(m_spiSettings);
 
@@ -836,10 +860,11 @@ void RA8876::selectInternalFont(enum FontSize size, enum FontEncoding enc)
   SPI.endTransaction();
 }
 
-void RA8876::selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc)
+void RA8876::selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc, FontFlags flags)
 {
   m_fontSource = RA8876_FONT_SOURCE_EXT_ROM;
   m_fontSize   = size;
+  m_fontFlags  = flags;
 
   SPI.beginTransaction(m_spiSettings);
 
@@ -885,27 +910,17 @@ void RA8876::putChars(const char *buffer, size_t size)
 {
   SPI.beginTransaction(m_spiSettings);
 
-  // Set colour
-  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
-  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
-  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
-
-  // Enable text mode
-  uint8_t icr = readReg(RA8876_REG_ICR);
-  writeReg(RA8876_REG_ICR, icr | 0x04);
+  setTextMode();
 
   // Write characters
   writeCmd(RA8876_REG_MRWDP);
   for (unsigned int i = 0; i < size; i++)
   {
+    waitWriteFifo();
     writeData(buffer[i]);
-
-    // TODO: Wait for status bits
-    delay(5);
   }
 
-  // Disable text mode
-  writeReg(RA8876_REG_ICR, icr);
+  setGraphicsMode();
 
   SPI.endTransaction();
 }
@@ -914,29 +929,20 @@ void RA8876::putChars16(const uint16_t *buffer, unsigned int count)
 {
   SPI.beginTransaction(m_spiSettings);
 
-  // Set colour
-  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
-  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
-  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
-
-  // Enable text mode
-  uint8_t icr = readReg(RA8876_REG_ICR);
-  writeReg(RA8876_REG_ICR, icr | 0x04);
+  setTextMode();
 
   // Write characters
   writeCmd(RA8876_REG_MRWDP);
   for (unsigned int i = 0; i < count; i++)
   {
-    Serial.print("buffer "); Serial.print(i); Serial.print(" val "); Serial.println(buffer[i], HEX);
+    waitWriteFifo();
     writeData(buffer[i] >> 8);
-    writeData(buffer[i] & 0xFF);
 
-    // TODO: Wait for status bits
-    delay(5);
+    waitWriteFifo();
+    writeData(buffer[i] & 0xFF);
   }
 
-  // Disable text mode
-  writeReg(RA8876_REG_ICR, icr);
+  setGraphicsMode();
 
   SPI.endTransaction();
 }
@@ -945,15 +951,9 @@ size_t RA8876::write(const uint8_t *buffer, size_t size)
 {
   SPI.beginTransaction(m_spiSettings);
 
-  // Set colour
-  writeReg(RA8876_REG_FGCR, m_textColor >> 11 << 3);
-  writeReg(RA8876_REG_FGCG, ((m_textColor >> 5) & 0x3F) << 2);
-  writeReg(RA8876_REG_FGCB, (m_textColor & 0x1F) << 3);
+  setTextMode();
 
-  // Enable text mode
-  uint8_t icr = readReg(RA8876_REG_ICR);
-  writeReg(RA8876_REG_ICR, icr | 0x04);
-
+  writeCmd(RA8876_REG_MRWDP);  // Set current register for writing to memory
   for (unsigned int i = 0; i < size; i++)
   {
     char c = buffer[i];
@@ -961,18 +961,29 @@ size_t RA8876::write(const uint8_t *buffer, size_t size)
     if (c == '\r')
       ;  // Ignored
     else if (c == '\n')
+    {
       setCursor(0, getCursorY() + getTextSizeY());
+      writeCmd(RA8876_REG_MRWDP);  // Reset current register for writing to memory
+    }
+    else if ((m_fontFlags & RA8876_FONT_FLAG_XLAT_FULLWIDTH) && ((c >= 0x21) || (c <= 0x7F)))
+    {
+      // Translate ASCII to Unicode fullwidth form (for Chinese fonts that lack ASCII)
+      uint16_t fwc = c - 0x21 + 0xFF01;
+
+      waitWriteFifo();
+      writeData(fwc >> 8);
+
+      waitWriteFifo();
+      writeData(fwc & 0xFF);
+    }
     else
-
-    // Write character
-    writeReg(RA8876_REG_MRWDP, c);
-
-    // TODO: Wait for status bits
-    delay(5);
+    {
+      waitWriteFifo();
+      writeData(c);
+    }
   }
 
-  // Disable text mode
-  writeReg(RA8876_REG_ICR, icr);
+  setGraphicsMode();
 
   SPI.endTransaction();
 

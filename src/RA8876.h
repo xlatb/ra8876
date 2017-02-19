@@ -113,15 +113,12 @@ enum ExternalFontFamily
 {
   RA8876_FONT_FAMILY_FIXED = 0,
   RA8876_FONT_FAMILY_ARIAL = 1,
-  RA8876_FONT_FAMILY_TIMES_ROMAN = 2,
+  RA8876_FONT_FAMILY_TIMES = 2,
   RA8876_FONT_FAMILY_FIXED_BOLD = 3
 };
 
-// TODO?
-//struct ExternalFontInfo
-//{
-//  enum ExternalFontFamily family;
-//};
+typedef uint8_t FontFlags;
+#define RA8876_FONT_FLAG_XLAT_FULLWIDTH 0x01  // Translate ASCII to Unicode fullwidth forms
 
 // 1MHz. TODO: Figure out actual speed to use
 // Data sheet section 5.2 says maximum SPI clock is 50MHz.
@@ -292,6 +289,7 @@ private:
 
   enum FontSource m_fontSource;
   enum FontSize   m_fontSize;
+  FontFlags       m_fontFlags;
 
   void hardReset(void);
   void softReset(void);
@@ -306,6 +304,9 @@ private:
   uint8_t readReg(uint8_t reg);
   uint16_t readReg16(uint8_t reg);
 
+  inline void waitWriteFifo(void) { while (readStatus() & 0x80); };
+  inline void waitTaskBusy(void) { while (readStatus() & 0x08); };
+
   bool calcPllParams(uint32_t targetFreq, int kMax, PllParams *pll);
   bool calcClocks(void);
   void dumpClocks(void);
@@ -317,11 +318,14 @@ private:
   // Font utils
   uint8_t internalFontEncoding(enum FontEncoding enc);
 
+  // Text/graphics mode
+  void setTextMode(void);
+  void setGraphicsMode(void);
+
   // Low-level shapes
   void drawTwoPointShape(int x1, int y1, int x2, int y2, uint16_t color, uint8_t reg, uint8_t cmd);  // drawLine, drawRect, fillRect
   void drawThreePointShape(int x1, int y1, int x2, int y2, int x3, int y3, uint16_t color, uint8_t reg, uint8_t cmd);  // drawTriangle, fillTriangle
   void drawEllipseShape(int x, int y, int xrad, int yrad, uint16_t color, uint8_t cmd);  // drawCircle, fillCircle
-
 public:
   RA8876(int csPin, int resetPin = 0);
 
@@ -357,7 +361,7 @@ public:
 
   // Text
   void selectInternalFont(enum FontSize size, enum FontEncoding enc = RA8876_FONT_ENCODING_8859_1);
-  void selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc);
+  void selectExternalFont(enum ExternalFontFamily family, enum FontSize size, enum FontEncoding enc, FontFlags flags = 0);
   int getTextSizeY(void);
   void setTextColor(uint16_t color) { m_textColor = color; };
   void setTextScale(int scale) { setTextScale(scale, scale); };
