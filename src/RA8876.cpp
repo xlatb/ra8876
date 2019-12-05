@@ -262,6 +262,7 @@ bool RA8876::calcClocks(void)
 // Dump clock info to serial monitor.
 void RA8876::dumpClocks(void)
 {
+  #if defined(RA8876_DEBUG)
   Serial.println("\nMem\n---");
   Serial.print("Requested kHz: "); Serial.println(m_sdramInfo->speed * 1000);
   Serial.print("Actual kHz   : "); Serial.println(m_memPll.freq);
@@ -278,6 +279,7 @@ void RA8876::dumpClocks(void)
   Serial.print("Actual kHz   : "); Serial.println(m_scanPll.freq);
   Serial.print("PLL k        : "); Serial.println(m_scanPll.k);
   Serial.print("PLL n        : "); Serial.println(m_scanPll.n);
+  #endif // RA8876_DEBUG
 
   // TODO: Frame rate?
 
@@ -286,7 +288,9 @@ void RA8876::dumpClocks(void)
 
 bool RA8876::initPLL(void)
 {
+  #if defined(RA8876_DEBUG)
   Serial.println("init PLL");
+  #endif // RA8876_DEBUG
 
   SPI.beginTransaction(m_spiSettings);
 
@@ -326,7 +330,9 @@ bool RA8876::initPLL(void)
 // Initialize SDRAM interface.
 bool RA8876::initMemory(SdramInfo *info)
 { 
+  #if defined(RA8876_DEBUG)
   Serial.println("init memory");    
+  #endif // RA8876_DEBUG
 
   uint32_t sdramRefreshRate;
   uint8_t sdrar = 0x00;
@@ -363,13 +369,19 @@ bool RA8876::initMemory(SdramInfo *info)
 
   SPI.beginTransaction(m_spiSettings);
 
+  #if defined(RA8876_DEBUG)
   Serial.print("SDRAR: "); Serial.println(sdrar);  // Expected: 0x29 (41 decimal)
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_SDRAR, sdrar);
 
+  #if defined(RA8876_DEBUG)
   Serial.print("SDRMD: "); Serial.println(sdrmd);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_SDRMD, sdrmd);
   
+  #if defined(RA8876_DEBUG)
   Serial.print("sdramRefreshRate: "); Serial.println(sdramRefreshRate);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_SDR_REF_ITVL0, sdramRefreshRate & 0xFF);
   writeReg(RA8876_REG_SDR_REF_ITVL1, sdramRefreshRate >> 8);
 
@@ -388,7 +400,9 @@ bool RA8876::initMemory(SdramInfo *info)
 
   SPI.endTransaction();
 
+  #if defined(RA8876_DEBUG)
   Serial.println(status);
+  #endif // RA8876_DEBUG
   
   return (status & 0x40) ? true : false;
 }
@@ -585,7 +599,9 @@ void RA8876::initExternalFontRom(int spiIf, enum ExternalFontRom chip)
   m_fontRomInfo.spiClockDivisor = divisor;
   m_fontRomInfo.chip = chip;
 
+  #if defined(RA8876_DEBUG)
   Serial.print("External font SPI divisor: "); Serial.println(divisor);
+  #endif // RA8876_DEBUG
 
   SPI.beginTransaction(m_spiSettings);
 
@@ -594,11 +610,17 @@ void RA8876::initExternalFontRom(int spiIf, enum ExternalFontRom chip)
   if (!(ccr & 0x02))
     writeReg(RA8876_REG_CCR, ccr | 0x02);
 
+  #if defined(RA8876_DEBUG)
   Serial.print("SFL_CTRL: "); Serial.println(((spiIf & 1) << 7) | 0x14, HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_SFL_CTRL, ((spiIf & 1) << 7) | 0x14);  // Font mode, 24-bit address, standard timing, supports FAST_READ
+  #if defined(RA8876_DEBUG)
   Serial.print("SPI_DIVSOR: "); Serial.println((divisor >> 1) - 1, HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_SPI_DIVSOR, (divisor >> 1) - 1);
+  #if defined(RA8876_DEBUG)
   Serial.print("GTFNT_SEL: "); Serial.println((chip & 0x07) << 5, HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_GTFNT_SEL, (chip & 0x07) << 5);
 
   SPI.endTransaction();
@@ -868,15 +890,21 @@ void RA8876::selectExternalFont(enum ExternalFontFamily family, enum FontSize si
 
   SPI.beginTransaction(m_spiSettings);
 
+  #if defined(RA8876_DEBUG)
   Serial.print("CCR0: "); Serial.println(0x40 | ((size & 0x03) << 4), HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_CCR0, 0x40 | ((size & 0x03) << 4));  // Select external font ROM and size
 
   uint8_t ccr1 = readReg(RA8876_REG_CCR1);
   ccr1 |= 0x40;  // Transparent background
+  #if defined(RA8876_DEBUG)
   Serial.print("CCR1: "); Serial.println(ccr1, HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_CCR1, ccr1);
 
+  #if defined(RA8876_DEBUG)
   Serial.print("GTFNT_CR: "); Serial.println((enc << 3) | (family & 0x03), HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_GTFNT_CR, (enc << 3) | (family & 0x03));  // Character encoding and family
 
   SPI.endTransaction();
@@ -899,7 +927,9 @@ void RA8876::setTextScale(int xScale, int yScale)
 
   uint8_t ccr1 = readReg(RA8876_REG_CCR1);
   ccr1 = (ccr1 & 0xF0) | ((xScale - 1) << 2) | (yScale - 1);
+  #if defined(RA8876_DEBUG)
   Serial.println(ccr1, HEX);
+  #endif // RA8876_DEBUG
   writeReg(RA8876_REG_CCR1, ccr1);
 
   SPI.endTransaction();

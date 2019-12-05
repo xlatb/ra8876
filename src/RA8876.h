@@ -6,6 +6,8 @@
 #include <Arduino.h>
 #include <SPI.h>
 
+//#define RA8876_DEBUG // Uncomment to enable debug messaging
+
 struct SdramInfo
 {
   int speed;       // MHz
