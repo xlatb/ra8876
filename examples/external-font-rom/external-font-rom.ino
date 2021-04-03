@@ -19,7 +19,7 @@ void setup()
 
   delay(1000);
 
-  while (!Serial);
+  while (!Serial && (millis() < 5000));
 
   Serial.println("Initializing display...");
 
@@ -36,8 +36,8 @@ void setup()
 
 void externalFontTestGT30L24T3Y()
 {
-  uint32_t starttime = millis();
-
+  tft.println("Test for GT30L24T3Y (aka ER3303-1)\n");
+  
   tft.initExternalFontRom(0, rom);
   
   tft.selectExternalFont(RA8876_FONT_FAMILY_FIXED, RA8876_FONT_SIZE_16, RA8876_FONT_ENCODING_ASCII);
@@ -59,9 +59,65 @@ void externalFontTestGT30L24T3Y()
   tft.selectExternalFont(RA8876_FONT_FAMILY_ARIAL, RA8876_FONT_SIZE_24, RA8876_FONT_ENCODING_ASCII);
   tft.println("Arial 24.");
   showFont();
+}
 
-  uint32_t elapsedtime = millis() - starttime;
-  Serial.print("External font test took "); Serial.print(elapsedtime); Serial.println(" ms");
+void externalFontTestGT30L32S4W()
+{
+  tft.println("Test for GT30L32S4W (aka ER3304-1)\n");
+
+  int y = tft.getCursorY();
+  
+  tft.initExternalFontRom(0, rom);
+  
+  // --- Fixed
+  
+  tft.selectExternalFont(RA8876_FONT_FAMILY_FIXED, RA8876_FONT_SIZE_16, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Fixed 8x16.");
+  showFont();
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_FIXED, RA8876_FONT_SIZE_24, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Fixed 12x24.");
+  showFont();
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_FIXED, RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Fixed 16x32.");
+  showFont();
+
+  delay(2000);
+  tft.fillRect(0, y, tft.getWidth(), tft.getHeight(), 0);
+  tft.setCursor(0, y);
+
+  // --- Arial
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_ARIAL, RA8876_FONT_SIZE_16, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Arial 16.");
+  showFont();
+  
+  tft.selectExternalFont(RA8876_FONT_FAMILY_ARIAL, RA8876_FONT_SIZE_24, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Arial 24.");
+  showFont();
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_ARIAL, RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Arial 32.");
+  showFont();
+
+  delay(2000);
+  tft.fillRect(0, y, tft.getWidth(), tft.getHeight(), 0);
+  tft.setCursor(0, y);
+
+  // --- Times
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_TIMES, RA8876_FONT_SIZE_16, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Times 16.");
+  showFont();
+  
+  tft.selectExternalFont(RA8876_FONT_FAMILY_TIMES, RA8876_FONT_SIZE_24, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Times 24.");
+  showFont();
+
+  tft.selectExternalFont(RA8876_FONT_FAMILY_TIMES, RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_ASCII);
+  tft.println("Times 32.");
+  showFont();
 }
 
 void showFont()
@@ -81,13 +137,17 @@ void loop()
   tft.selectInternalFont(RA8876_FONT_SIZE_32, RA8876_FONT_ENCODING_8859_1);
   tft.println("External font test\n");
 
-  if (rom == RA8876_FONT_ROM_GT30L24T3Y)
+  switch (rom)
   {
-    externalFontTestGT30L24T3Y();
-  }
-  else
-  {
-    tft.println("Sorry, no test yet for that font ROM chip.\n");
+    case RA8876_FONT_ROM_GT30L24T3Y:
+      externalFontTestGT30L24T3Y();
+      break;
+    case RA8876_FONT_ROM_GT30L32S4W:
+      externalFontTestGT30L32S4W();
+      break;
+    default:
+      tft.println("Sorry, no test yet for that font ROM chip.\n");
+      break;
   }
   
   delay(5000);
