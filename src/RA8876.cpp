@@ -63,22 +63,35 @@ uint8_t RA8876::readStatus(void)
   return x;
 }
 
-void RA8876::writeReg(uint8_t reg, uint8_t x)
+void RA8876::writeReg(uint8_t reg, uint8_t v)
 {
   writeCmd(reg);
-  writeData(x);
+  writeData(v);
 }
 
 // Like writeReg(), but does two successive register writes of a 16-bit value, low byte first.
-void RA8876::writeReg16(uint8_t reg, uint16_t x)
+void RA8876::writeReg16(uint8_t reg, uint16_t v)
 {
   writeCmd(reg);
-  writeData(x & 0xFF);
+  writeData(v & 0xFF);
   writeCmd(reg + 1);
-  writeData(x >> 8);
+  writeData(v >> 8);
 }
 
-uint8_t RA8876::readReg(uint8_t reg) 
+// Like writeReg(), but does four successive register writes of a 32-bit value, low byte first.
+void RA8876::writeReg32(uint8_t reg, uint32_t v)
+{
+  writeCmd(reg);
+  writeData(v & 0xFF);
+  writeCmd(reg + 1);
+  writeData((v >> 8) & 0xFF);
+  writeCmd(reg + 2);
+  writeData((v >> 16) & 0xFF);
+  writeCmd(reg + 3);
+  writeData(v >> 24);
+}
+
+uint8_t RA8876::readReg(uint8_t reg)
 {
   writeCmd(reg);
   return readData();
@@ -626,6 +639,114 @@ void RA8876::initExternalFontRom(int spiIf, enum ExternalFontRom chip)
   SPI.endTransaction();
 }
 
+// Relatively expensive and causes brief flicker when enabled.
+//void RA8876::enableDisplay(bool enable)
+//{
+//  SPI.beginTransaction(m_spiSettings);
+//  
+//  uint8_t dpcr = readReg(RA8876_REG_DPCR);
+//
+//  if (enable)
+//    dpcr |= 0x40;  // Display on
+//  else
+//    dpcr &= 0xBF;  // Display off
+//
+//  writeReg(RA8876_REG_DPCR, dpcr);
+//
+//  SPI.endTransaction();
+//}
+
+bool RA8876::setCanvasRegion(uint32_t address, uint16_t width)
+{
+  if (address & 0x3)
+    return false;  // Address must me multiple of 4
+  else if ((width & 0x03) || (width > 0x1FFF))
+    return false;  // Width must be multiple of 4 and fit in 13 bits
+
+  SPI.beginTransaction(m_spiSettings);
+
+  // Set canvas start address
+  writeReg32(RA8876_REG_CVSSA0, address);
+  
+  uint8_t aw_color = readReg(RA8876_REG_AW_COLOR);
+
+  if (width)
+  {
+    aw_color &= 0xFB;  // Block mode
+    writeReg16(RA8876_REG_CVS_IMWTH0, width);
+  }
+  else
+  {
+    aw_color |= 0x04;  // Linear mode
+  }
+
+  writeReg(RA8876_REG_AW_COLOR, aw_color);
+
+  SPI.endTransaction();
+
+  return true;
+}
+
+bool RA8876::setCanvasWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+{
+  if (x + width > 8188)
+    return false;
+  else if (y + height > 8191)
+    return false;
+
+  SPI.beginTransaction(m_spiSettings);
+    
+  // Set active window offset
+  writeReg16(RA8876_REG_AWUL_X0, x);
+  writeReg16(RA8876_REG_AWUL_Y0, y);
+
+  // Set active window dimensions
+  writeReg16(RA8876_REG_AW_WTH0, width);
+  writeReg16(RA8876_REG_AW_HT0, height);
+
+  SPI.endTransaction();
+
+  return true;
+}
+
+bool RA8876::setDisplayRegion(uint32_t address, uint16_t width)
+{
+  if (address & 0x3)
+    return false;  // Address must me multiple of 4
+  else if ((width & 0x03) || (width > 8188))
+    return false;  // Width must be multiple of 4 and max 8188
+
+  SPI.beginTransaction(m_spiSettings);
+  
+  // Set main window start address
+  writeReg32(RA8876_REG_MISA0, address);
+
+  // Set main window image width
+  writeReg16(RA8876_REG_MIW0, width);
+
+  SPI.endTransaction();
+
+  return true;
+}
+
+bool RA8876::setDisplayOffset(uint16_t x, uint16_t y)
+{
+  if (x > 8188)
+    return false;
+  else if (y > 8191)
+    return false;
+
+  SPI.beginTransaction(m_spiSettings);
+
+  // Set main window offset
+  writeReg16(RA8876_REG_MWULX0, x & 0xFFFC);  // Low two bits must be zero
+  writeReg16(RA8876_REG_MWULY0, y);
+
+  SPI.endTransaction();
+
+  return true;
+}
+
 // Show colour bars of 8 colours in repeating horizontal bars.
 // This does not alter video memory, but rather instructs the video controller to display
 //  the pattern rather than the contents of memory.
@@ -1019,4 +1140,3 @@ size_t RA8876::write(const uint8_t *buffer, size_t size)
 
   return size;
 }
-

@@ -122,6 +122,12 @@ enum ExternalFontFamily
 typedef uint8_t FontFlags;
 #define RA8876_FONT_FLAG_XLAT_FULLWIDTH 0x01  // Translate ASCII to Unicode fullwidth forms
 
+//enum CanvasMode
+//{
+// RA8876_CANVAS_LINEAR,
+// RA8876_CANVAS_BLOCK
+//};
+
 // 1MHz. TODO: Figure out actual speed to use
 // Data sheet section 5.2 says maximum SPI clock is 50MHz.
 #define RA8876_SPI_SPEED 1000000
@@ -303,6 +309,7 @@ private:
 
   void writeReg(uint8_t reg, uint8_t x);
   void writeReg16(uint8_t reg, uint16_t x);
+  void writeReg32(uint8_t reg, uint32_t x);
   uint8_t readReg(uint8_t reg);
   uint16_t readReg16(uint8_t reg);
 
@@ -334,6 +341,14 @@ public:
   // Init
   bool init(void);
   void initExternalFontRom(int spiIf, enum ExternalFontRom chip);
+
+  // Canvas region
+  bool setCanvasRegion(uint32_t address, uint16_t width = 0);
+  bool setCanvasWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+
+  // Display region
+  bool setDisplayRegion(uint32_t address, uint16_t width);
+  bool setDisplayOffset(uint16_t x, uint16_t y);
 
   // Dimensions
   int getWidth() { return m_width; };
